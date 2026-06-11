@@ -41,7 +41,6 @@ mods:
   - mods/drop-caches-fast
   - mods/fix-pwal-diagnostics
   - mods/fix-pwal-empty-cache
-  - mods/gpu-mem-util-gb
   - mods/fix-qwen3.5-autoround
 
 # Default settings (can be overridden via CLI)
@@ -50,7 +49,7 @@ defaults:
   host: 0.0.0.0
   served_model_name: nex/nex-n2-pro
   tensor_parallel: 2
-  gpu_memory_utilization: 108
+  gpu_memory_utilization: 0.84
   max_model_len: 262144
   max_num_batched_tokens: 4176
 
@@ -81,7 +80,7 @@ command: |
     --port {port} \
     --tensor-parallel-size {tensor_parallel} \
     --distributed-executor-backend ray \
-    --gpu-memory-utilization-gb {gpu_memory_utilization} \
+    --gpu-memory-utilization {gpu_memory_utilization} \
     --max-model-len {max_model_len} \
     --max-num-seqs 2 \
     --max-num-batched-tokens {max_num_batched_tokens} \
