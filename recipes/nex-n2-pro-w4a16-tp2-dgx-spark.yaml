@@ -48,7 +48,7 @@ defaults:
   served_model_name: nex/nex-n2-pro
   tensor_parallel: 2
   gpu_memory_utilization: 0.88
-  max_model_len: 65536
+  max_model_len: 262144
   max_num_batched_tokens: 4176
 
 # Environment variables — NCCL tuning for GB10 stability
