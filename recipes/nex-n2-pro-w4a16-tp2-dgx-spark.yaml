@@ -1,0 +1,86 @@
+# Recipe: Nex-N2-Pro-W4A16-TP2-DGX-Spark
+# vLLM serving Nex-N2-Pro-4bit-W4A16 (Qwen3.5 MoE 397B-A17B, auto-round INT4)
+# on a 2x DGX Spark cluster with TP=2. Launch with --no-ray.
+#
+# Based on karol.spark's working recipe from NVIDIA forums.
+# Key differences from the default 397B recipe:
+#   - --quantization moe_wna16 (instead of auto-detect "inc")
+#   - --language-model-only (skips vision processor init)
+#   - --compilation-config with FULL_DECODE_ONLY (lighter CUDA graphs)
+#   - --load-format instanttensor
+#   - NCCL tuning env vars for GB10 stability
+#   - Uses local model path (hf-download first, then point to /models/)
+
+recipe_version: "1"
+name: Nex-N2-Pro-W4A16-TP2-DGX-Spark
+description: >
+  vLLM serving Nex-N2-Pro-4bit-W4A16 (Qwen3.5 MoE 397B-A17B, auto-round INT4)
+  on a 2x DGX Spark cluster with TP=2. Launch with --no-ray.
+
+# Local path — download model first with hf-download.sh
+model: /models/Nex-N2-Pro-4bit-W4A16
+
+cluster_only: true
+
+# Container image to use
+container: vllm-node-tf5
+
+build_args:
+  - --tf5
+
+# Karol's mod set:
+#   drop-caches-fast  → aggressive cache dropping every 5s during load
+#   fix-pwal-diagnostics → suppress noisy GB10 diagnostic warnings
+#   fix-qwen3.5-autoround → patches transformers for AutoRound compatibility
+mods:
+  - mods/drop-caches-fast
+  - mods/fix-pwal-diagnostics
+  - mods/fix-qwen3.5-autoround
+
+# Default settings (can be overridden via CLI)
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  served_model_name: nex/nex-n2-pro
+  tensor_parallel: 2
+  gpu_memory_utilization: 0.88
+  max_model_len: 65536
+  max_num_batched_tokens: 4176
+
+# Environment variables — NCCL tuning for GB10 stability
+env:
+  PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True"
+  TORCH_CUDA_ARCH_LIST: "12.1a"
+  VLLM_ALLOW_LONG_MAX_MODEL_LEN: "1"
+  NCCL_CUMEM_ENABLE: "0"
+  NCCL_NVLS_ENABLE: "0"
+  FLASHINFER_DISABLE_VERSION_CHECK: "1"
+  VLLM_MARLIN_USE_ATOMIC_ADD: "1"
+  INSTANTTENSOR_MAX_FREE_MEM_USAGE: "0.05"
+  INSTANTTENSOR_IO_DEPTH: "32"
+
+# The vLLM serve command template
+# NOTE: --quantization moe_wna16 is CRITICAL for auto-round W4A16 MoE
+command: |
+  vllm serve /models/Nex-N2-Pro-4bit-W4A16 \
+    --served-model-name {served_model_name} \
+    --quantization moe_wna16 \
+    --trust-remote-code \
+    --dtype auto \
+    --kv-cache-dtype fp8 \
+    --language-model-only \
+    --compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[1,2,4]}' \
+    --host {host} \
+    --port {port} \
+    --tensor-parallel-size {tensor_parallel} \
+    --distributed-executor-backend ray \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --max-model-len {max_model_len} \
+    --max-num-seqs 4 \
+    --max-num-batched-tokens {max_num_batched_tokens} \
+    --enable-prefix-caching \
+    --enable-chunked-prefill \
+    --load-format instanttensor \
+    --enable-auto-tool-choice \
+    --tool-call-parser qwen3_xml \
+    --reasoning-parser qwen3
