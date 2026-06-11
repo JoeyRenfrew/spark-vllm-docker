@@ -73,7 +73,7 @@ command: |
     --dtype auto \
     --kv-cache-dtype fp8 \
     --language-model-only \
-    --compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[1,2,4]}' \
+    --compilation-config '{{"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[1,2,4]}}' \
     --host {host} \
     --port {port} \
     --tensor-parallel-size {tensor_parallel} \
