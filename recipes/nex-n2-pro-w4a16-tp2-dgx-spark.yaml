@@ -9,7 +9,11 @@
 #   - --compilation-config with FULL_DECODE_ONLY (lighter CUDA graphs)
 #   - --load-format instanttensor
 #   - NCCL tuning env vars for GB10 stability
-#   - Uses local model path (hf-download first, then point to /models/)
+#
+# Before running:
+#   hf-download.sh bullerwins/Nex-N2-Pro-4bit-W4A16 -c --copy-parallel
+#   The model will be in HF cache. This recipe uses the HF model ID directly
+#   so the container resolves it from cache automatically.
 
 recipe_version: "1"
 name: Nex-N2-Pro-W4A16-TP2-DGX-Spark
@@ -17,8 +21,8 @@ description: >
   vLLM serving Nex-N2-Pro-4bit-W4A16 (Qwen3.5 MoE 397B-A17B, auto-round INT4)
   on a 2x DGX Spark cluster with TP=2. Launch with --no-ray.
 
-# Local path — download model first with hf-download.sh
-model: /models/Nex-N2-Pro-4bit-W4A16
+# HF model ID — resolved from local HF cache after hf-download.sh
+model: bullerwins/Nex-N2-Pro-4bit-W4A16
 
 cluster_only: true
 
@@ -62,7 +66,7 @@ env:
 # The vLLM serve command template
 # NOTE: --quantization moe_wna16 is CRITICAL for auto-round W4A16 MoE
 command: |
-  vllm serve /models/Nex-N2-Pro-4bit-W4A16 \
+  vllm serve bullerwins/Nex-N2-Pro-4bit-W4A16 \
     --served-model-name {served_model_name} \
     --quantization moe_wna16 \
     --trust-remote-code \
