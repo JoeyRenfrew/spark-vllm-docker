@@ -1,0 +1,17 @@
+--- /usr/local/lib/python3.12/dist-packages/vllm/model_executor/model_loader/utils.py
++++ /usr/local/lib/python3.12/dist-packages/vllm/model_executor/model_loader/utils.py
+@@ -X,XX +XX @@
+ import logging
+ import os
+ from typing import Any, Dict, List, Optional, Set, Tuple, Type
++import torch
+ 
+ import numpy as np
+ from transformers import PretrainedConfig
+@@ -X,XX +XX @@
+                 with device_loading_context(module, target_device):
+                     quant_method.process_weights_after_loading(module)
++                    torch.cuda.empty_cache()  # release allocator pool between modules
++                    mem = os.popen("awk '/MemAvailable/{print $2}' /proc/meminfo").read().strip()
++                    logger.info("PWAL: module %s done, MemAvailable: %s kB", 
++                                module.__class__.__name__, mem)
