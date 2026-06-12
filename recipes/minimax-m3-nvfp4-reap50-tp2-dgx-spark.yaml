@@ -1,108 +1,14 @@
-# Recipe: MiniMax-M3-NVFP4-REAP50-TP2-DGX-Spark
-# vLLM serving sparkarena/Minimax-M3-v0-NVFP4-REAP50 (Minimax M3 MoE ~428B-A23B,
-# NVFP4 quantized with REAP50 sparsification) on a 2x DGX Spark cluster with TP=2.
-# Launch with --no-ray.
-#
-# Key facts:
-#   - Model type: minimax_m3_vl
-#   - ~428B total parameters, ~23B active (MoE)
-#   - 1,048,576 token context (1M), defaulting to 262144 for conservative 2x Spark fit
-#   - NVFP4 quantization with REAP50 sparsity pattern
-#   - Uses MSA (MiniMax Sparse Attention) requiring --block-size 128
-#   - MOE backend must be cutlass for NVFP4 on Blackwell (DGX Spark)
-#   - InstantTensor load format for large models
-#   - Tool parser & reasoning parser: minimax_m3
-#
-# Mods applied:
-#   drop-caches-fast          → aggressive cache dropping during load
-#   fix-pwal-diagnostics      → suppress noisy GB10 diagnostic warnings
-#   fix-pwal-empty-cache      → empty_cache() after each PWAL module
-#   fix-minimax-m3-nvfp4      → install custom SGLang fork for NVFP4 w1/3 scale support
-#
-# Before running:
-#   hf-download.sh sparkarena/Minimax-M3-v0-NVFP4-REAP50 -c --copy-parallel
-#   The model will be in HF cache. This recipe uses the HF model ID directly
-#   so the container resolves it from cache automatically.
-#
-#
-# ⚠️  The spark-vllm-docker system converts --no-ray to the internal executor.
-#     MSA sparse attention works best with the native vLLM executor on DGX Spark.
-#     If --no-ray causes issues, omit it for the Ray-based distributed executor.
-#
-# CLI example:
-#   spark-vllm launch minimax-m3-nvfp4-reap50-tp2-dgx-spark --no-ray
-#
-
-recipe_version: "1"
-name: MiniMax-M3-NVFP4-REAP50-TP2-DGX-Spark
-description: >
-  vLLM serving sparkarena/Minimax-M3-v0-NVFP4-REAP50 (~428B MoE, NVFP4 quantized,
-  REAP50 sparsified) on a 2x DGX Spark cluster with TP=2. Uses MSA (MiniMax Sparse
-  Attention) with --block-size 128, cutlass MOE backend, InstantTensor loading,
-  and the minimax_m3 tool/reasoning parsers.
-
-# HF model ID — resolved from local HF cache after hf-download.sh
-model: sparkarena/Minimax-M3-v0-NVFP4-REAP50
-
-cluster_only: true
-
-# Container image to use
-container: vllm-node-tf5
-
-build_args:
-  - --tf5
-
-# Mods for NVFP4/REAP50 on DGX Spark
-mods:
-  - mods/drop-caches-fast
-  - mods/fix-pwal-diagnostics
-  - mods/fix-pwal-empty-cache
-  - mods/fix-minimax-m3-nvfp4
-
-# Default settings (can be overridden via CLI)
-defaults:
-  port: 8000
-  host: 0.0.0.0
-  served_model_name: minimax/m3-nvfp4-reap50
-  tensor_parallel: 2
+name: minimax-m3-nvfp4-reap50-tp2-dgx-spark
+version: 1.0.0
+parameters:
+  model: sparkarena/Minimax-M3-v0-NVFP4-REAP50
+  tensor_parallel_size: 2
+  block_size: 128
   gpu_memory_utilization: 0.88
-  max_model_len: 262144
-  max_num_batched_tokens: 4176
-
-# Environment variables — NCCL tuning for GB10 stability, Blackwell arch, InstantTensor
-env:
-  PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True"
-  TORCH_CUDA_ARCH_LIST: "12.1a"
-  VLLM_ALLOW_LONG_MAX_MODEL_LEN: "1"
-  NCCL_CUMEM_ENABLE: "0"
-  NCCL_NVLS_ENABLE: "0"
-  FLASHINFER_DISABLE_VERSION_CHECK: "1"
-  INSTANTTENSOR_MAX_FREE_MEM_USAGE: "0.05"
-  INSTANTTENSOR_IO_DEPTH: "32"
-
-# The vLLM serve command template
-# NOTE: --block-size 128 is MANDATORY for MSA (MiniMax Sparse Attention) sparse/index cache
-# NOTE: --moe-backend cutlass is REQUIRED for NVFP4 on Blackwell (DGX Spark)
-# NOTE: --load-format instanttensor for efficient loading of large models
-command: |
-  vllm serve sparkarena/Minimax-M3-v0-NVFP4-REAP50 \
-    --served-model-name {served_model_name} \
-    --trust-remote-code \
-    --dtype auto \
-    --kv-cache-dtype fp8 \
-    --block-size 128 \
-    --moe-backend cutlass \
-    --host {host} \
-    --port {port} \
-    --tensor-parallel-size {tensor_parallel} \
-    --distributed-executor-backend ray \
-    --gpu-memory-utilization {gpu_memory_utilization} \
-    --max-model-len {max_model_len} \
-    --max-num-seqs 2 \
-    --max-num-batched-tokens {max_num_batched_tokens} \
-    --enable-prefix-caching \
-    --enable-chunked-prefill \
-    --load-format instanttensor \
-    --enable-auto-tool-choice \
-    --tool-call-parser minimax_m3 \
-    --reasoning-parser minimax_m3
+  max_num_seqs: 2
+  enable_prefix_caching: true
+  model_executor_config:
+    dtype: bfloat16
+    moe_backend: cutlass
+  tool_call_parser: minimax_m3
+  reasoning_parser: minimax_m3
