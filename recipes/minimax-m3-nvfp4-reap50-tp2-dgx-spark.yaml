@@ -1,5 +1,5 @@
 name: minimax-m3-nvfp4-reap50-tp2-dgx-spark
-version: 1.0.0
+recipe_version: 1.0.0
 parameters:
   model: sparkarena/Minimax-M3-v0-NVFP4-REAP50
   tensor_parallel_size: 2
